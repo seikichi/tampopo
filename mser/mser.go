@@ -1,143 +1,122 @@
 // Package mser provides Maximum Stable Extremal Region algorithms.
 package mser
 
-import (
-	"image"
-	"image/color"
-)
+import "image"
 
-// An ExtremalRegion represents a maximum intensity region.
-type ExtremalRegion struct {
-	level, area         int
-	point               image.Point
-	parent, next, child *ExtremalRegion
+// A MSER represents Maximum Stable Extremal Region.
+type MSER struct {
+	level, area int
+	point       image.Point
+	variation   float64
+
+	parent   *MSER
+	children []*MSER
 }
 
 // Level returns pixel level of ExtremalRegion.
-func (r *ExtremalRegion) Level() int { return r.level }
+func (r *MSER) Level() int { return r.level }
 
-// Area returns area of ExtremalRegion.
-func (r *ExtremalRegion) Area() int { return r.area }
+// Area returns area of MSER.
+func (r *MSER) Area() int { return r.area }
 
-// Point returns a point belongs to the ExtremalRegion.
-func (r *ExtremalRegion) Point() image.Point { return r.point }
+// Point returns a point belongs to the MSER.
+func (r *MSER) Point() image.Point { return r.point }
 
 // Parent returns parent region.
-func (r *ExtremalRegion) Parent() *ExtremalRegion { return r.parent }
+func (r *MSER) Parent() *MSER { return r.parent }
 
-// Children returns children regions.
-func (r *ExtremalRegion) Children() []*ExtremalRegion {
-	children := []*ExtremalRegion{}
+// Variation returns variaion of MSER.
+func (r *MSER) Variation() float64 { return r.variation }
+
+// Children returns MSER children.
+func (r *MSER) Children() []*MSER { return r.children }
+
+func (r *ExtremalRegion) process(delta, minArea, maxArea int, maxVariation float64) {
+	parent := r
+	for parent.parent != nil && parent.parent.level <= r.level+delta {
+		parent = parent.parent
+	}
+
+	r.variation = float64(parent.area-r.area) / float64(r.area)
+	stable := (parent == nil) || (r.variation <= parent.variation)
+	stable = stable && r.area >= minArea && r.area <= maxArea && r.variation <= maxVariation
+
 	for child := r.child; child != nil; child = child.next {
-		children = append(children, child)
+		child.process(delta, minArea, maxArea, maxVariation)
+		r.stable = r.stable || (stable && r.variation < child.variation)
+	}
+
+	r.stable = r.stable || (r.child == nil && stable)
+}
+
+func (r *ExtremalRegion) check(variation float64, area int) bool {
+	if r.area <= area {
+		return true
+	}
+	if r.stable && r.variation < variation {
+		return false
+	}
+	for child := r.child; child != nil; child = child.next {
+		if !child.check(variation, area) {
+			return false
+		}
+	}
+	return true
+}
+
+func (r *ExtremalRegion) buildMSERForest(minDiversity float64) []*MSER {
+	if r.stable {
+		minParentArea := int(float64(r.area)/(1.0-minDiversity) + 0.5)
+		parent := r
+
+		for parent.parent != nil && parent.parent.area < minParentArea {
+			parent = parent.parent
+			if parent.stable && parent.variation <= r.variation {
+				r.stable = false
+				break
+			}
+		}
+		if r.stable {
+			maxChildArea := int(float64(r.area)*(1.0-minDiversity) + 0.5)
+			if !r.check(r.variation, maxChildArea) {
+				r.stable = false
+			}
+		}
+	}
+	children := []*MSER{}
+	for child := r.child; child != nil; child = child.next {
+		children = append(children, child.buildMSERForest(minDiversity)...)
+	}
+	if r.stable {
+		region := &MSER{
+			level:     r.level,
+			area:      r.area,
+			point:     r.point,
+			variation: r.variation,
+			children:  children,
+		}
+		for _, child := range children {
+			child.parent = region
+		}
+		return []*MSER{region}
 	}
 	return children
 }
 
-func (r *ExtremalRegion) accumulate(x, y int) {
-	r.area++
+// Params represents MSER algorithm paraemters.
+type Params struct {
+	Delta                                        int
+	MinArea, MaxArea, MaxVariation, MinDiversity float64
 }
 
-func (r *ExtremalRegion) merge(child *ExtremalRegion) {
-	r.area += child.area
-	child.parent = r
-	child.next = r.child
-	r.child = child
-}
+// BuildMSERForest returns MSERs forest from given image.
+func BuildMSERForest(im *image.Gray, params *Params) []*MSER {
+	tree := BuildERTree(im)
 
-type searchState struct {
-	point image.Point
-	edge  int
-}
-
-// BuildERTree returns ERs tree from given image.
-func BuildERTree(im *image.Gray) *ExtremalRegion {
 	bounds := im.Bounds()
-	width, height := bounds.Dx(), bounds.Dy()
-	if width == 0 && height == 0 {
-		return nil
-	}
-
-	priority := 256
-	heap := make([][]searchState, 256)
-	stack := []*ExtremalRegion{}
-	accessible := make([]bool, width*height)
-	stack = append(stack, &ExtremalRegion{level: 256})
-
-	curPixel, curEdge := bounds.Min, 0
-	curLevel := int(im.At(bounds.Min.X, bounds.Min.Y).(color.Gray).Y)
-	accessible[0] = true
-
-step3:
-	for {
-		stack = append(stack, &ExtremalRegion{level: curLevel, point: curPixel})
-		for {
-			for ; curEdge < 4; curEdge++ {
-				var neighbourPixel image.Point
-				switch curEdge {
-				case 0:
-					neighbourPixel = image.Point{curPixel.X + 1, curPixel.Y}
-				case 1:
-					neighbourPixel = image.Point{curPixel.X, curPixel.Y + 1}
-				case 2:
-					neighbourPixel = image.Point{curPixel.X - 1, curPixel.Y}
-				default:
-					neighbourPixel = image.Point{curPixel.X, curPixel.Y - 1}
-				}
-
-				index := (neighbourPixel.Y-bounds.Min.Y)*width + (neighbourPixel.X - bounds.Min.X)
-				if neighbourPixel.In(bounds) && !accessible[index] {
-					neighbourLevel := int(im.At(neighbourPixel.X, neighbourPixel.Y).(color.Gray).Y)
-					accessible[index] = true
-					if neighbourLevel >= curLevel {
-						heap[neighbourLevel] = append(heap[neighbourLevel], searchState{point: neighbourPixel})
-						if neighbourLevel < priority {
-							priority = neighbourLevel
-						}
-					} else {
-						heap[curLevel] = append(heap[curLevel], searchState{point: curPixel, edge: curEdge + 1})
-						if curLevel < priority {
-							priority = curLevel
-						}
-						curPixel, curEdge, curLevel = neighbourPixel, 0, neighbourLevel
-						continue step3
-					}
-				}
-			}
-			stack[len(stack)-1].accumulate(curPixel.X, curPixel.Y)
-			if priority == 256 {
-				return stack[len(stack)-1]
-			}
-			last := heap[priority][len(heap[priority])-1]
-			heap[priority] = heap[priority][:len(heap[priority])-1]
-			curPixel, curEdge = last.point, last.edge
-
-			for priority < 256 && len(heap[priority]) == 0 {
-				priority++
-			}
-
-			newPixelGreyLevel := int(im.At(curPixel.X, curPixel.Y).(color.Gray).Y)
-			if newPixelGreyLevel != curLevel {
-				curLevel = newPixelGreyLevel
-				stack = processStack(newPixelGreyLevel, curPixel, stack)
-			}
-		}
-	}
-}
-
-func processStack(newPixelGreyLevel int, pixel image.Point, stack []*ExtremalRegion) []*ExtremalRegion {
-	for {
-		top := stack[len(stack)-1]
-		stack = stack[:len(stack)-1]
-		if newPixelGreyLevel < stack[len(stack)-1].level {
-			stack = append(stack, &ExtremalRegion{level: newPixelGreyLevel, point: pixel})
-			stack[len(stack)-1].merge(top)
-			return stack
-		}
-		stack[len(stack)-1].merge(top)
-		if newPixelGreyLevel <= stack[len(stack)-1].level {
-			break
-		}
-	}
-	return stack
+	size := bounds.Dx() * bounds.Dy()
+	minArea := int(params.MinArea * float64(size))
+	maxArea := int(params.MaxArea * float64(size))
+	tree.process(params.Delta, minArea, maxArea, params.MaxVariation)
+	return tree.buildMSERForest(params.MinDiversity)
 }
