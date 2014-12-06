@@ -2,111 +2,110 @@ package mser
 
 import (
 	"image"
+	"image/color"
 	"testing"
 )
 
-type regionTree struct {
+type erTree struct {
 	level, area int
 	point       image.Point
-	children    []*regionTree
+	children    []*erTree
 }
 
 var testData = []struct {
-	input  image.Gray
-	output *regionTree
+	input  *image.Gray
+	output *erTree
 }{{
-	input:  image.Gray{Pix: []uint8{}},
+	input:  &image.Gray{Pix: []uint8{}},
 	output: nil,
 }, {
-	input: image.Gray{
+	input: &image.Gray{
 		Pix:    []uint8{0},
 		Stride: 1,
 		Rect:   image.Rectangle{Min: image.Point{0, 0}, Max: image.Point{1, 1}}},
-	output: &regionTree{level: 0, area: 1, point: image.Point{0, 0}},
+	output: &erTree{level: 0, area: 1, point: image.Point{0, 0}},
 }, {
-	input: image.Gray{
+	input: &image.Gray{
 		Pix: []uint8{
 			1, 2, 2,
-			2, 1, 1,
-		},
+			2, 1, 1},
 		Stride: 3,
 		Rect:   image.Rectangle{Min: image.Point{0, 0}, Max: image.Point{3, 2}}},
-	output: &regionTree{level: 2, area: 6, point: image.Point{0, 1},
-		children: []*regionTree{
-			&regionTree{level: 1, area: 1, point: image.Point{0, 0}},
-			&regionTree{level: 1, area: 2, point: image.Point{1, 1}}}},
+	output: &erTree{level: 2, area: 6, point: image.Point{0, 1},
+		children: []*erTree{
+			&erTree{level: 1, area: 1, point: image.Point{0, 0}},
+			&erTree{level: 1, area: 2, point: image.Point{1, 1}}}},
 }, {
-	input: image.Gray{
+	input: &image.Gray{
 		Pix: []uint8{
 			3, 3,
 			2, 2,
-			1, 1,
-		},
+			1, 1},
 		Stride: 2,
 		Rect:   image.Rectangle{Min: image.Point{0, 0}, Max: image.Point{2, 3}}},
-	output: &regionTree{level: 3, area: 6, point: image.Point{0, 0},
-		children: []*regionTree{
-			&regionTree{level: 2, area: 4,
+	output: &erTree{level: 3, area: 6, point: image.Point{0, 0},
+		children: []*erTree{
+			&erTree{level: 2, area: 4,
 				point: image.Point{0, 1},
-				children: []*regionTree{
-					&regionTree{level: 1, area: 2,
+				children: []*erTree{
+					&erTree{level: 1, area: 2,
 						point: image.Point{0, 2}}}}}},
 }, {
-	input: image.Gray{
+	input: &image.Gray{
 		Pix: []uint8{
 			3, 1, 3,
 			2, 3, 2,
-			3, 1, 3,
-		},
+			3, 1, 3},
 		Stride: 3,
 		Rect:   image.Rectangle{Min: image.Point{0, 0}, Max: image.Point{3, 3}}},
-	output: &regionTree{level: 3, area: 9, point: image.Point{0, 0},
-		children: []*regionTree{
-			&regionTree{level: 1, area: 1, point: image.Point{1, 0}},
-			&regionTree{level: 1, area: 1, point: image.Point{1, 2}},
-			&regionTree{level: 2, area: 1, point: image.Point{0, 1}},
-			&regionTree{level: 2, area: 1, point: image.Point{2, 1}}}},
+	output: &erTree{level: 3, area: 9, point: image.Point{0, 0},
+		children: []*erTree{
+			&erTree{level: 1, area: 1, point: image.Point{1, 0}},
+			&erTree{level: 1, area: 1, point: image.Point{1, 2}},
+			&erTree{level: 2, area: 1, point: image.Point{0, 1}},
+			&erTree{level: 2, area: 1, point: image.Point{2, 1}}}},
 }, {
-	input: image.Gray{
+	input: &image.Gray{
 		Pix: []uint8{
 			5, 5, 5, 9,
 			4, 1, 2, 1,
 			4, 3, 4, 2,
-			3, 3, 3, 1,
-		},
+			3, 3, 3, 1},
 		Stride: 4,
 		Rect:   image.Rectangle{Min: image.Point{0, 0}, Max: image.Point{4, 4}}},
-	output: &regionTree{
+	output: &erTree{
 		level: 9, area: 16, point: image.Point{3, 0},
-		children: []*regionTree{
-			&regionTree{level: 5, area: 15, point: image.Point{0, 0},
-				children: []*regionTree{
-					&regionTree{level: 4, area: 12, point: image.Point{0, 1},
-						children: []*regionTree{
-							&regionTree{level: 3, area: 9, point: image.Point{1, 1},
-								children: []*regionTree{
-									&regionTree{level: 2, area: 5, point: image.Point{2, 1},
-										children: []*regionTree{
-											&regionTree{level: 1, area: 1, point: image.Point{1, 1}},
-											&regionTree{level: 1, area: 1, point: image.Point{3, 1}},
-											&regionTree{level: 1, area: 1, point: image.Point{3, 3}}}}}}}}}}}},
+		children: []*erTree{
+			&erTree{level: 5, area: 15, point: image.Point{0, 0},
+				children: []*erTree{
+					&erTree{level: 4, area: 12, point: image.Point{0, 1},
+						children: []*erTree{
+							&erTree{level: 3, area: 9, point: image.Point{1, 1},
+								children: []*erTree{
+									&erTree{level: 2, area: 5, point: image.Point{2, 1},
+										children: []*erTree{
+											&erTree{level: 1, area: 1, point: image.Point{1, 1}},
+											&erTree{level: 1, area: 1, point: image.Point{3, 1}},
+											&erTree{level: 1, area: 1, point: image.Point{3, 3}}}}}}}}}}}},
 }, {
-	input: image.Gray{
+	input: (&image.Gray{
 		Pix: []uint8{
 			0, 0, 0, 0, 0,
 			0, 3, 1, 3, 0,
 			0, 2, 3, 2, 0,
 			0, 3, 1, 3, 0,
-			0, 0, 0, 0, 0,
-		},
+			0, 0, 0, 0, 0},
 		Stride: 5,
-		Rect:   image.Rectangle{Min: image.Point{1, 1}, Max: image.Point{4, 4}}},
-	output: &regionTree{level: 3, area: 9, point: image.Point{1, 1},
-		children: []*regionTree{
-			&regionTree{level: 1, area: 1, point: image.Point{2, 1}},
-			&regionTree{level: 1, area: 1, point: image.Point{2, 3}},
-			&regionTree{level: 2, area: 1, point: image.Point{1, 2}},
-			&regionTree{level: 2, area: 1, point: image.Point{3, 2}}}},
+		Rect:   image.Rectangle{Min: image.Point{0, 0}, Max: image.Point{5, 5}},
+	}).SubImage(image.Rectangle{
+		Min: image.Point{1, 1},
+		Max: image.Point{4, 4}}).(*image.Gray),
+	output: &erTree{level: 3, area: 9, point: image.Point{1, 1},
+		children: []*erTree{
+			&erTree{level: 1, area: 1, point: image.Point{2, 1}},
+			&erTree{level: 1, area: 1, point: image.Point{2, 3}},
+			&erTree{level: 2, area: 1, point: image.Point{1, 2}},
+			&erTree{level: 2, area: 1, point: image.Point{3, 2}}}},
 }}
 
 func TestBuildERTree(t *testing.T) {
@@ -115,7 +114,7 @@ func TestBuildERTree(t *testing.T) {
 	}
 }
 
-func contains(r *ExtremalRegion, p image.Point, im image.Gray) bool {
+func contains(r *ExtremalRegion, p image.Point, im *image.Gray) bool {
 	visited := map[image.Point]struct{}{}
 	var top image.Point
 	que := []image.Point{r.Point()}
@@ -124,7 +123,7 @@ func contains(r *ExtremalRegion, p image.Point, im image.Gray) bool {
 		if _, ok := visited[top]; ok {
 			continue
 		}
-		if int(im.Pix[im.PixOffset(top.X, top.Y)]) > r.Level() {
+		if int(im.At(top.X, top.Y).(color.Gray).Y) > r.Level() {
 			continue
 		}
 		visited[top] = struct{}{}
@@ -144,7 +143,7 @@ func contains(r *ExtremalRegion, p image.Point, im image.Gray) bool {
 	return false
 }
 
-func assertERTree(t *testing.T, im image.Gray, actual *ExtremalRegion, expected *regionTree) {
+func assertERTree(t *testing.T, im *image.Gray, actual *ExtremalRegion, expected *erTree) {
 	if expected == nil && actual == nil {
 		return
 	}
