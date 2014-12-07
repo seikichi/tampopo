@@ -3,33 +3,23 @@ package mser
 
 import "image"
 
-// A MSER represents Maximum Stable Extremal Region.
-type MSER struct {
-	level, area int
-	point       image.Point
-	variation   float64
-
-	parent   *MSER
-	children []*MSER
+// Params represents MSER algorithm paraemters.
+type Params struct {
+	Delta                                        int
+	MinArea, MaxArea, MaxVariation, MinDiversity float64
 }
 
-// Level returns pixel level of ExtremalRegion.
-func (r *MSER) Level() int { return r.level }
+// ExtractMSERForest extracts the MSER component forest of the image.
+func ExtractMSERForest(im *image.Gray, params Params) []*ExtremalRegion {
+	tree := ExtractERTree(im)
 
-// Area returns area of MSER.
-func (r *MSER) Area() int { return r.area }
-
-// Point returns a point belongs to the MSER.
-func (r *MSER) Point() image.Point { return r.point }
-
-// Parent returns parent region.
-func (r *MSER) Parent() *MSER { return r.parent }
-
-// Variation returns variaion of MSER.
-func (r *MSER) Variation() float64 { return r.variation }
-
-// Children returns MSER children.
-func (r *MSER) Children() []*MSER { return r.children }
+	bounds := im.Bounds()
+	size := bounds.Dx() * bounds.Dy()
+	minArea := int(params.MinArea * float64(size))
+	maxArea := int(params.MaxArea * float64(size))
+	tree.process(params.Delta, minArea, maxArea, params.MaxVariation)
+	return tree.extractMSER(params.MinDiversity)
+}
 
 func (r *ExtremalRegion) process(delta, minArea, maxArea int, maxVariation float64) {
 	parent := r
@@ -38,7 +28,7 @@ func (r *ExtremalRegion) process(delta, minArea, maxArea int, maxVariation float
 	}
 
 	r.variation = float64(parent.area-r.area) / float64(r.area)
-	stable := (parent == nil) || (r.variation <= parent.variation)
+	stable := (r.parent == nil) || (r.variation <= r.parent.variation)
 	stable = stable && r.area >= minArea && r.area <= maxArea && r.variation <= maxVariation
 
 	for child := r.child; child != nil; child = child.next {
@@ -64,7 +54,7 @@ func (r *ExtremalRegion) check(variation float64, area int) bool {
 	return true
 }
 
-func (r *ExtremalRegion) buildMSERForest(minDiversity float64) []*MSER {
+func (r *ExtremalRegion) extractMSER(minDiversity float64) []*ExtremalRegion {
 	if r.stable {
 		minParentArea := int(float64(r.area)/(1.0-minDiversity) + 0.5)
 		parent := r
@@ -83,40 +73,27 @@ func (r *ExtremalRegion) buildMSERForest(minDiversity float64) []*MSER {
 			}
 		}
 	}
-	children := []*MSER{}
+	children := []*ExtremalRegion{}
 	for child := r.child; child != nil; child = child.next {
-		children = append(children, child.buildMSERForest(minDiversity)...)
+		children = append(children, child.extractMSER(minDiversity)...)
 	}
+	for i, child := range children {
+		child.parent = nil
+		if i+1 < len(children) {
+			child.next = children[i+1]
+		}
+	}
+
 	if r.stable {
-		region := &MSER{
-			level:     r.level,
-			area:      r.area,
-			point:     r.point,
-			variation: r.variation,
-			children:  children,
-		}
+		root := *r
 		for _, child := range children {
-			child.parent = region
+			child.parent = &root
 		}
-		return []*MSER{region}
+		root.parent, root.child, root.next = nil, nil, nil
+		if len(children) > 0 {
+			root.child = children[0]
+		}
+		return []*ExtremalRegion{&root}
 	}
 	return children
-}
-
-// Params represents MSER algorithm paraemters.
-type Params struct {
-	Delta                                        int
-	MinArea, MaxArea, MaxVariation, MinDiversity float64
-}
-
-// BuildMSERForest returns MSERs forest from given image.
-func BuildMSERForest(im *image.Gray, params *Params) []*MSER {
-	tree := BuildERTree(im)
-
-	bounds := im.Bounds()
-	size := bounds.Dx() * bounds.Dy()
-	minArea := int(params.MinArea * float64(size))
-	maxArea := int(params.MaxArea * float64(size))
-	tree.process(params.Delta, minArea, maxArea, params.MaxVariation)
-	return tree.buildMSERForest(params.MinDiversity)
 }

@@ -7,9 +7,10 @@ import (
 )
 
 type erTree struct {
-	level, area int
-	point       image.Point
-	children    []*erTree
+	level    int
+	point    image.Point
+	area     int
+	children []*erTree
 }
 
 var erTestData = []struct {
@@ -22,7 +23,7 @@ var erTestData = []struct {
 	input: &image.Gray{
 		Pix:    []uint8{0},
 		Stride: 1,
-		Rect:   image.Rectangle{Min: image.Point{0, 0}, Max: image.Point{1, 1}}},
+		Rect:   image.Rect(0, 0, 1, 1)},
 	output: &erTree{level: 0, area: 1, point: image.Point{0, 0}},
 }, {
 	input: &image.Gray{
@@ -30,7 +31,7 @@ var erTestData = []struct {
 			1, 2, 2,
 			2, 1, 1},
 		Stride: 3,
-		Rect:   image.Rectangle{Min: image.Point{0, 0}, Max: image.Point{3, 2}}},
+		Rect:   image.Rect(0, 0, 3, 2)},
 	output: &erTree{level: 2, area: 6, point: image.Point{0, 1},
 		children: []*erTree{
 			&erTree{level: 1, area: 1, point: image.Point{0, 0}},
@@ -42,7 +43,7 @@ var erTestData = []struct {
 			2, 2,
 			1, 1},
 		Stride: 2,
-		Rect:   image.Rectangle{Min: image.Point{0, 0}, Max: image.Point{2, 3}}},
+		Rect:   image.Rect(0, 0, 2, 3)},
 	output: &erTree{level: 3, area: 6, point: image.Point{0, 0},
 		children: []*erTree{
 			&erTree{level: 2, area: 4,
@@ -57,7 +58,7 @@ var erTestData = []struct {
 			2, 3, 2,
 			3, 1, 3},
 		Stride: 3,
-		Rect:   image.Rectangle{Min: image.Point{0, 0}, Max: image.Point{3, 3}}},
+		Rect:   image.Rect(0, 0, 3, 3)},
 	output: &erTree{level: 3, area: 9, point: image.Point{0, 0},
 		children: []*erTree{
 			&erTree{level: 1, area: 1, point: image.Point{1, 0}},
@@ -72,7 +73,7 @@ var erTestData = []struct {
 			4, 3, 4, 2,
 			3, 3, 3, 1},
 		Stride: 4,
-		Rect:   image.Rectangle{Min: image.Point{0, 0}, Max: image.Point{4, 4}}},
+		Rect:   image.Rect(0, 0, 4, 4)},
 	output: &erTree{
 		level: 9, area: 16, point: image.Point{3, 0},
 		children: []*erTree{
@@ -96,10 +97,8 @@ var erTestData = []struct {
 			0, 3, 1, 3, 0,
 			0, 0, 0, 0, 0},
 		Stride: 5,
-		Rect:   image.Rectangle{Min: image.Point{0, 0}, Max: image.Point{5, 5}},
-	}).SubImage(image.Rectangle{
-		Min: image.Point{1, 1},
-		Max: image.Point{4, 4}}).(*image.Gray),
+		Rect:   image.Rect(0, 0, 5, 5),
+	}).SubImage(image.Rect(1, 1, 4, 4)).(*image.Gray),
 	output: &erTree{level: 3, area: 9, point: image.Point{1, 1},
 		children: []*erTree{
 			&erTree{level: 1, area: 1, point: image.Point{2, 1}},
@@ -110,7 +109,7 @@ var erTestData = []struct {
 
 func TestBuildERTree(t *testing.T) {
 	for _, td := range erTestData {
-		assertERTree(t, td.input, BuildERTree(td.input), td.output)
+		assertERTree(t, td.input, ExtractERTree(td.input), td.output)
 	}
 }
 

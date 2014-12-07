@@ -7,12 +7,22 @@ import (
 
 // An ExtremalRegion represents a maximum intensity region.
 type ExtremalRegion struct {
-	level, area         int
-	point               image.Point
-	parent, next, child *ExtremalRegion
+	// seed point and threshold
+	point image.Point
+	level int
 
+	// incrementally computable features
+	area           int
+	rect           image.Rectangle
+	rawMoments     [2]int
+	centralMoments [3]int
+
+	// fields for stability computation
 	variation float64
 	stable    bool
+
+	// pointers preserving the tree structure of the component tree
+	parent, next, child *ExtremalRegion
 }
 
 // Level returns pixel level of ExtremalRegion.
@@ -24,11 +34,14 @@ func (r *ExtremalRegion) Area() int { return r.area }
 // Point returns a point belongs to the ExtremalRegion.
 func (r *ExtremalRegion) Point() image.Point { return r.point }
 
-// Parent returns parent region.
-func (r *ExtremalRegion) Parent() *ExtremalRegion { return r.parent }
-
 // Variation returns variaion of ExtremalRegion.
 func (r *ExtremalRegion) Variation() float64 { return r.variation }
+
+// Bounds returns bounding box of the region.
+func (r *ExtremalRegion) Bounds() image.Rectangle { return r.rect }
+
+// Parent returns parent region.
+func (r *ExtremalRegion) Parent() *ExtremalRegion { return r.parent }
 
 // Children returns children regions.
 func (r *ExtremalRegion) Children() []*ExtremalRegion {
@@ -40,14 +53,35 @@ func (r *ExtremalRegion) Children() []*ExtremalRegion {
 }
 
 func (r *ExtremalRegion) accumulate(x, y int) {
+	if r.area == 0 {
+		r.rect = image.Rect(x, y, x+1, y+1)
+	} else {
+		r.rect = r.rect.Union(image.Rect(x, y, x+1, y+1))
+	}
 	r.area++
+
+	r.rawMoments[0] += x
+	r.rawMoments[1] += x
+	r.centralMoments[0] += x * x
+	r.centralMoments[1] += x * y
+	r.centralMoments[2] += y * y
 }
 
 func (r *ExtremalRegion) merge(child *ExtremalRegion) {
+	if r.area == 0 {
+		r.rect = child.rect
+	} else {
+		r.rect = r.rect.Union(child.rect)
+	}
 	r.area += child.area
-	child.parent = r
-	child.next = r.child
-	r.child = child
+
+	r.rawMoments[0] += child.rawMoments[0]
+	r.rawMoments[1] += child.rawMoments[1]
+	r.centralMoments[0] += child.centralMoments[0]
+	r.centralMoments[1] += child.centralMoments[1]
+	r.centralMoments[2] += child.centralMoments[2]
+
+	child.parent, child.next, r.child = r, r.child, child
 }
 
 type searchState struct {
@@ -55,8 +89,8 @@ type searchState struct {
 	edge  int
 }
 
-// BuildERTree returns ERs tree from given image.
-func BuildERTree(im *image.Gray) *ExtremalRegion {
+// ExtractERTree extracts the ER component tree of the image.
+func ExtractERTree(im *image.Gray) *ExtremalRegion {
 	bounds := im.Bounds()
 	width, height := bounds.Dx(), bounds.Dy()
 	if width == 0 && height == 0 {
