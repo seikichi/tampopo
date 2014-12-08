@@ -1,49 +1,83 @@
 package main
 
 import (
+	"flag"
 	"fmt"
-	"image"
 
+	"image"
+	"image/color"
+
+	"github.com/disintegration/imaging"
 	"github.com/seikichi/tampopo/mser"
 )
 
+var maxArea = flag.Float64("maxArea", 1.0,
+	"Maximum area of any stable region relative to the image domain area.")
+
+var minArea = flag.Float64("minArea", 0.0,
+	"Minimum area of any stable region relative to the image domain area.")
+
 func main() {
-	// im := &image.Gray{
-	// 	Pix:    []uint8{1},
-	// 	Stride: 4,
-	// 	Rect:   image.Rect(0, 0, 1, 1)}
-	im := &image.Gray{
-		Pix: []uint8{
-			1, 1, 9, 1,
-			1, 2, 9, 9,
-			9, 9, 3, 1,
-			9, 9, 1, 1,
-		},
-		Stride: 4,
-		Rect:   image.Rect(0, 0, 4, 4)}
-	tree := mser.ExtractERTree(im)
-	printERTree(tree, 0)
+	flag.Parse()
 
-	fmt.Println("!!!!!!!!")
+	if flag.NArg() != 2 {
+		return
+	}
 
-	forest := mser.ExtractMSERForest(im, mser.Params{
-		Delta:        2,
-		MinArea:      0.2,
-		MaxArea:      1.1,
-		MaxVariation: 0.9,
-		MinDiversity: 0.0,
+	input, output := flag.Arg(0), flag.Arg(1)
+
+	im, _ := imaging.Open(input)
+
+	bounds := im.Bounds()
+	w, h := bounds.Dx(), bounds.Dy()
+	gray := image.NewGray(image.Rect(0, 0, w, h))
+	for x := 0; x < w; x++ {
+		for y := 0; y < h; y++ {
+			oldColor := im.At(bounds.Min.X+x, bounds.Min.Y+y)
+			grayColor := color.GrayModel.Convert(oldColor)
+			gray.Set(x, y, grayColor)
+		}
+	}
+
+	forest := mser.ExtractMSERForest(gray, mser.Params{
+		MaxArea: *maxArea,
+		MinArea: *minArea,
 	})
+
+	rgba := im.(*image.NRGBA)
+
+	count := 0
 	for _, tree := range forest {
-		printERTree(tree, 0)
+		count += countTree(tree)
+		drawRegions(rgba, tree)
+	}
+	fmt.Println(count)
+
+	imaging.Save(rgba, output)
+}
+
+func countTree(r *mser.ExtremalRegion) int {
+	count := 1
+	for _, child := range r.Children() {
+		count += countTree(child)
+	}
+	return count
+}
+
+func drawRegions(rgba *image.NRGBA, r *mser.ExtremalRegion) {
+	drawRect(rgba, r.Bounds())
+	for _, child := range r.Children() {
+		drawRegions(rgba, child)
 	}
 }
 
-func printERTree(r *mser.ExtremalRegion, index int) {
-	for i := 0; i < index; i++ {
-		fmt.Print(" ")
+func drawRect(rgba *image.NRGBA, rect image.Rectangle) {
+	for x := rect.Min.X; x < rect.Max.X; x++ {
+		rgba.Set(x, rect.Min.Y, color.RGBA{255, 0, 0, 255})
+		rgba.Set(x, rect.Max.Y, color.RGBA{255, 0, 0, 255})
 	}
-	fmt.Printf("Region{level: %v, area: %v, bounds: %v}\n", r.Level(), r.Area(), r.Bounds())
-	for _, child := range r.Children() {
-		printERTree(child, index+2)
+	for y := rect.Min.Y; y < rect.Max.Y; y++ {
+		rgba.Set(rect.Min.X, y, color.RGBA{255, 0, 0, 255})
+		rgba.Set(rect.Max.X, y, color.RGBA{255, 0, 0, 255})
 	}
 }
