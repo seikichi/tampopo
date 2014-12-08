@@ -1,7 +1,10 @@
 // Package mser provides Maximum Stable Extremal Region algorithms.
 package mser
 
-import "image"
+import (
+	"fmt"
+	"image"
+)
 
 // Params represents MSER algorithm paraemters.
 type Params struct {
@@ -30,6 +33,8 @@ func (r *ExtremalRegion) process(delta, minArea, maxArea int, maxVariation float
 	r.variation = float64(parent.area-r.area) / float64(r.area)
 	stable := (r.parent == nil) || (r.variation <= r.parent.variation)
 	stable = stable && r.area >= minArea && r.area <= maxArea && r.variation <= maxVariation
+
+	fmt.Println(r.area, r.variation)
 
 	for child := r.child; child != nil; child = child.next {
 		child.process(delta, minArea, maxArea, maxVariation)
