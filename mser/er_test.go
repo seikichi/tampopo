@@ -38,7 +38,7 @@ func newER(p fromFields, children ...*ExtremalRegion) *ExtremalRegion {
 	return r
 }
 
-var testData = []struct {
+var erTestData = []struct {
 	input  *image.Gray
 	output *ExtremalRegion
 }{{
@@ -98,41 +98,59 @@ var testData = []struct {
 }}
 
 func TestExtractERTree(t *testing.T) {
-	for i, tc := range testData {
+	for i, tc := range erTestData {
 		tree := ExtractERTree(tc.input)
 		if !assertERsEqual(t, tc.output, tree) {
-			imageBuf, expBuf, actBuf := new(bytes.Buffer), new(bytes.Buffer), new(bytes.Buffer)
-			printGray(tc.input, 2, imageBuf)
-			printER(tc.output, 2, expBuf)
-			printER(tree, 2, actBuf)
-
 			t.Errorf("test case %d:\ninput (min = %v):\n%v\nexpected:\n%v\nactual:\n%v\n",
-				i+1, tc.input.Bounds().Min, imageBuf.String(), expBuf.String(), actBuf.String())
+				i+1,
+				tc.input.Bounds().Min,
+				grayStringer{im: tc.input, indent: 2},
+				erStringer{region: tc.output, indent: 2},
+				erStringer{region: tree, indent: 2})
 		}
 	}
 }
 
-func printGray(im *image.Gray, indent int, w io.Writer) {
-	bounds := im.Bounds()
+type grayStringer struct {
+	im     *image.Gray
+	indent int
+}
+
+func (g grayStringer) String() string {
+	w := new(bytes.Buffer)
+	bounds := g.im.Bounds()
 	for y := bounds.Min.Y; y < bounds.Max.Y; y++ {
-		for i := 0; i < indent; i++ {
+		for i := 0; i < g.indent; i++ {
 			fmt.Fprintf(w, " ")
 		}
 		for x := bounds.Min.X; x < bounds.Max.X; x++ {
-			fmt.Fprintf(w, " %03d", im.At(x, y).(color.Gray).Y)
+			fmt.Fprintf(w, " %03d", g.im.At(x, y).(color.Gray).Y)
 		}
 		fmt.Fprintf(w, "\n")
 	}
+	return w.String()
 }
 
-func printER(r *ExtremalRegion, indent int, w io.Writer) {
-	for i := 0; i < indent; i++ {
-		fmt.Fprintf(w, " ")
+type erStringer struct {
+	region *ExtremalRegion
+	indent int
+}
+
+func (s erStringer) String() string {
+	w := new(bytes.Buffer)
+	var printER func(r *ExtremalRegion, indent int, w io.Writer)
+
+	printER = func(r *ExtremalRegion, indent int, w io.Writer) {
+		for i := 0; i < indent; i++ {
+			fmt.Fprintf(w, " ")
+		}
+		fmt.Fprintf(w, "{level: %v, area: %v, rect: %v}\n", r.level, r.area, r.rect)
+		for _, child := range r.Children() {
+			printER(child, indent+2, w)
+		}
 	}
-	fmt.Fprintf(w, "{level: %v, area: %v, rect: %v}\n", r.level, r.area, r.rect)
-	for _, child := range r.Children() {
-		printER(child, indent+2, w)
-	}
+	printER(s.region, s.indent, w)
+	return w.String()
 }
 
 type erSorter []*ExtremalRegion
@@ -146,6 +164,12 @@ func (s erSorter) Swap(i, j int) { s[i], s[j] = s[j], s[i] }
 // Less compares two ERs.
 func (s erSorter) Less(i, j int) bool {
 	pi, pj := s[i].rect.Min, s[j].rect.Min
+	if pi.X != pj.X {
+		return pi.X < pj.X
+	} else if pi.Y != pj.Y {
+		return pi.Y < pj.Y
+	}
+	pi, pj = s[i].rect.Max, s[j].rect.Max
 	if pi.X != pj.X {
 		return pi.X < pj.X
 	}

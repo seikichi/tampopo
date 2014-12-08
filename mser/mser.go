@@ -1,10 +1,7 @@
 // Package mser provides Maximum Stable Extremal Region algorithms.
 package mser
 
-import (
-	"fmt"
-	"image"
-)
+import "image"
 
 // Params represents MSER algorithm paraemters.
 type Params struct {
@@ -15,9 +12,24 @@ type Params struct {
 // ExtractMSERForest extracts the MSER component forest of the image.
 func ExtractMSERForest(im *image.Gray, params Params) []*ExtremalRegion {
 	tree := ExtractERTree(im)
+	size := im.Bounds().Dx() * im.Bounds().Dy()
+	return selectMSER(tree, size, params)
+}
 
-	bounds := im.Bounds()
-	size := bounds.Dx() * bounds.Dy()
+func (p *Params) init() {
+	if p.MaxArea <= 0 {
+		p.MaxArea = 1.0
+	}
+	if p.Delta <= 0 {
+		p.Delta = 1
+	}
+	if p.MaxVariation <= 0 {
+		p.MaxVariation = 1.0
+	}
+}
+
+func selectMSER(tree *ExtremalRegion, size int, params Params) []*ExtremalRegion {
+	params.init()
 	minArea := int(params.MinArea * float64(size))
 	maxArea := int(params.MaxArea * float64(size))
 	tree.process(params.Delta, minArea, maxArea, params.MaxVariation)
@@ -33,8 +45,6 @@ func (r *ExtremalRegion) process(delta, minArea, maxArea int, maxVariation float
 	r.variation = float64(parent.area-r.area) / float64(r.area)
 	stable := (r.parent == nil) || (r.variation <= r.parent.variation)
 	stable = stable && r.area >= minArea && r.area <= maxArea && r.variation <= maxVariation
-
-	fmt.Println(r.area, r.variation)
 
 	for child := r.child; child != nil; child = child.next {
 		child.process(delta, minArea, maxArea, maxVariation)
