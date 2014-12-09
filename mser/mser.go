@@ -89,7 +89,9 @@ func (r *ExtremalRegion) extractMSER(minDiversity float64) []*ExtremalRegion {
 		}
 	}
 	children := []*ExtremalRegion{}
-	for child := r.child; child != nil; child = child.next {
+
+	for child, next := r.child, r; child != nil; child = next {
+		next = child.next
 		children = append(children, child.extractMSER(minDiversity)...)
 	}
 	for i, child := range children {
@@ -99,16 +101,16 @@ func (r *ExtremalRegion) extractMSER(minDiversity float64) []*ExtremalRegion {
 		}
 	}
 
-	if r.stable {
-		root := *r
-		for _, child := range children {
-			child.parent = &root
-		}
-		root.parent, root.child, root.next = nil, nil, nil
-		if len(children) > 0 {
-			root.child = children[0]
-		}
-		return []*ExtremalRegion{&root}
+	if !r.stable {
+		return children
 	}
-	return children
+
+	for _, child := range children {
+		child.parent = r
+	}
+	r.parent, r.child, r.next = nil, nil, nil
+	if len(children) > 0 {
+		r.child = children[0]
+	}
+	return []*ExtremalRegion{r}
 }

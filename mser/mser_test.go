@@ -19,19 +19,19 @@ var mserTestData = []struct {
 	input: newER(fromFields{level: 10, area: 20},
 		newER(fromFields{level: 1, area: 1}),
 		newER(fromFields{level: 2, area: 2}),
-		newER(fromFields{level: 3, area: 3}),
+		newER(fromFields{level: 4, area: 4}),
 		newER(fromFields{level: 5, area: 5})),
 	output: []*ExtremalRegion{
 		newER(fromFields{level: 2, area: 2}),
-		newER(fromFields{level: 3, area: 3})},
+		newER(fromFields{level: 4, area: 4})},
 }, {
 	// test Delta
 	size:   10,
 	params: Params{Delta: 1},
 	input: newER(fromFields{level: 10, area: 10}, // 0
-		newER(fromFields{level: 9, area: 9}, // 1/9
+		newER(fromFields{level: 9, area: 9}, // 1/9 = 0.11...
 			newER(fromFields{level: 5, area: 5}, // 0
-				newER(fromFields{level: 4, area: 4}, // 1/4
+				newER(fromFields{level: 4, area: 4}, // 1/4 = 0.25
 					newER(fromFields{level: 2, area: 2}))))), // 0
 	output: []*ExtremalRegion{newER(fromFields{level: 10, area: 10},
 		newER(fromFields{level: 5, area: 5},
@@ -41,10 +41,10 @@ var mserTestData = []struct {
 	size:   10,
 	params: Params{Delta: 2},
 	input: newER(fromFields{level: 10, area: 10}, // 0
-		newER(fromFields{level: 9, area: 9}, // 1/9
+		newER(fromFields{level: 9, area: 9}, // 1/9 = 0.11..
 			newER(fromFields{level: 5, area: 5}, // 0
-				newER(fromFields{level: 4, area: 4}, // 1/4
-					newER(fromFields{level: 2, area: 2}))))), // 2/2
+				newER(fromFields{level: 4, area: 4}, // 1/4 = 0.25
+					newER(fromFields{level: 2, area: 2}))))), // 2/2 = 1
 	output: []*ExtremalRegion{newER(fromFields{level: 10, area: 10},
 		newER(fromFields{level: 5, area: 5}))},
 }, {
