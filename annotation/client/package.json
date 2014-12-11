@@ -1,0 +1,19 @@
+{
+  "name": "tampopo-annotation-client",
+  "version": "0.0.0",
+  "description": "tampopo annotation client",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/seikichi/tampopo"
+  },
+  "author": "Seiichi KONDO <seikichi@kmc.gr.jp>",
+  "license": "MIT",
+  "bugs": {
+    "url": "https://github.com/seikichi/tampopo/issues"
+  },
+  "homepage": "https://github.com/seikichi/tampopo"
+}

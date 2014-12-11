@@ -1,0 +1,19 @@
+{
+  "name": "tampopo-annotation-client",
+  "version": "0.0.0",
+  "homepage": "https://github.com/seikichi/tampopo/annotation/client",
+  "authors": [
+    "Seiichi KONDO <seikichi@kmc.gr.jp>"
+  ],
+  "license": "MIT",
+  "ignore": [
+    "**/.*",
+    "node_modules",
+    "bower_components",
+    "test",
+    "tests"
+  ],
+  "dependencies": {
+    "fabric": "~1.4.13"
+  }
+}
